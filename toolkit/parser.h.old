@@ -1,0 +1,33 @@
+#ifndef _PARSER_H
+#define _PARSER_H
+
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include "log.h"
+
+// Externals
+extern LogError *systemLog;
+
+#include "list.h"
+#include "mystring.h"
+#include "debug.h"
+
+class Parser {
+private:
+  int parserInitialized;
+  char *delimiter;
+  int delimiterLenght;
+  int minAsciiDelimiter;
+  int maxAsciiDelimiter;
+public:
+  Parser(char *);
+  Parser(int, int);
+  ~Parser();
+  void Parser::setDelimiter(char *_delimiter) { delimiter = _delimiter; };
+  void Parser::upperCase(char *chaine);
+  void Parser::deleteWhiteSpaces(String *string);
+  List<String *> *Parser::tokenizeString(char *, int);
+};
+
+#endif

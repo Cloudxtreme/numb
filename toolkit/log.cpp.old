@@ -1,0 +1,149 @@
+/*
+ * Cette classe permet de logguer des messages soit dans un fichier local soit dans syslogd.
+ * facility peut etre: LOG_ERROR, LOG_CRIT etc... ou LOG_FILE si on loggue dans un fichier
+ * mode vaut SYSLOG ou LOCALFILE
+ * setOutput(...): Regle le mode de log de la chaine (fichier ou syslog)
+ * getOutput()   : Recupere le mode dans lequel on se trouve
+ * syslog(...)   : Loggue une chaine de caractere
+ * closeLog()    : Ferme le log
+ */
+
+#include "log.h"
+#include <pthread.h>
+
+LogError::LogError()
+{
+  localFile = NULL;
+  mode = SYSLOG;
+  logOpt = 0;
+  strcpy(ident, "UserLog");
+  initMutexes();
+  
+  return;
+}
+
+LogError::LogError(char *_ident) {
+  localFile = NULL;
+  mode = SYSLOG;
+  logOpt = 0;
+  strncpy(ident, _ident, sizeof(ident));
+  initMutexes();
+
+  return;
+}
+
+LogError::~LogError()
+{
+  bzero(ident, sizeof(ident));
+  localFile = NULL;
+  mode = 0;
+
+  return;
+}
+
+void LogError::setOutput(char _mode)
+{
+	pthread_rwlock_wrlock(&lockmode);
+	mode = _mode;
+	pthread_rwlock_unlock(&lockmode);
+
+	return;
+}
+
+char LogError::getOutput(void)
+{
+	char m;
+
+	pthread_rwlock_rdlock(&lockmode);
+	m = mode;
+	pthread_rwlock_unlock(&lockmode);
+	return m;
+}
+
+void LogError::setIdentity(char *_ident)
+{
+	pthread_rwlock_wrlock(&lockidentity);
+	free(ident);
+	strncpy(ident, _ident, sizeof(ident));
+	pthread_rwlock_unlock(&lockidentity);
+
+	return;
+}
+
+void LogError::initMutexes(void)
+{
+	pthread_rwlock_init(&locksyslog, NULL);
+	pthread_rwlock_init(&lockmode, NULL);
+	pthread_rwlock_init(&lockfacility, NULL);
+	pthread_rwlock_init(&lockidentity, NULL);
+	pthread_rwlock_init(&lockopen, NULL);
+	pthread_rwlock_init(&lockclose, NULL);
+
+	return;
+}
+
+void LogError::sysLog(int facility, char *format, ...)
+{
+  va_list ap;
+
+  pthread_rwlock_wrlock(&locksyslog);
+  va_start(ap, format);
+  vsnprintf(buf, sizeof(buf), format, ap);
+  va_end(ap);
+	if (getOutput() == LOCALFILE) {
+    // A modifier afin d'inclure la date et l'heure quand on loggue dans un fichier
+    snprintf(buf2, sizeof(buf2), "%s %s:%d %s", __FILE__, __FUNCTION__, __LINE__, buf);
+		fwrite(buf2, strlen(buf2), 1, getLocalFile());
+		fflush(getLocalFile());
+	} else {
+    snprintf(buf2, sizeof(buf2), "%s %s:%d %s", __FILE__, __FUNCTION__, __LINE__, buf);
+		openlog(ident, getLogOpt(), facility);
+		syslog(facility, buf2);
+		closelog();
+	}
+	pthread_rwlock_unlock(&locksyslog);
+    
+  return;
+}
+
+void LogError::sysLog(char *file, const char *function, unsigned int line, int facility, char *format, ...)
+{
+  va_list ap;
+
+  pthread_rwlock_wrlock(&locksyslog);
+  va_start(ap, format);
+  vsnprintf(buf, sizeof(buf), format, ap);
+  va_end(ap);
+  if (getOutput() == LOCALFILE) {
+    // A modifier afin d'inclure la date et l'heure quand on loggue dans un fichier
+    snprintf(buf2, sizeof(buf2), "%s %s:%d %s\n", file, function, line, buf);
+		fwrite(buf2, strlen(buf2), 1, getLocalFile());
+		fflush(getLocalFile());
+	} else {
+    snprintf(buf2, sizeof(buf2), "%s %s:%d %s", file, function, line, buf);
+		openlog(ident, getLogOpt(), facility);
+		syslog(facility, buf2);
+		closelog();
+	}
+	pthread_rwlock_unlock(&locksyslog);
+    
+  return;
+}
+
+void LogError::openFile(char *name)
+{
+	pthread_rwlock_wrlock(&lockopen);
+	setLocalFile(fopen(name, "w"));
+	pthread_rwlock_unlock(&lockopen);
+
+	return;
+}
+
+void LogError::closeFile(void)
+{	
+	pthread_rwlock_wrlock(&lockclose);
+	fclose(getLocalFile());
+	pthread_rwlock_unlock(&lockclose);
+
+	return;
+}

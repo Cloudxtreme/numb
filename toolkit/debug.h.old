@@ -1,0 +1,8 @@
+#ifndef DEBUG_H
+#define DEBUG_H
+
+#ifdef DEBUG_MEMORY
+#include <dmalloc.h>
+#endif
+
+#endif

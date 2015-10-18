@@ -1,0 +1,99 @@
+#include <unistd.h>
+#include <errno.h>
+#include "thread.h"
+#include "log.h"
+
+Thread::Thread(ObjectAction *_objectAction) {
+  int returnCode;
+
+  pthreadInitialized = false;
+  if (! _objectAction) {
+    systemLog->sysLog(LOG_ERR, "cannot create thread object, objectAction is NULL\n");
+    return;
+  }
+  objectAction = _objectAction;
+	returnCode = pthread_attr_init(&pthreadAttributes);
+  if (returnCode) {
+    switch (returnCode) {
+      case ENOMEM:
+        systemLog->sysLog(LOG_ERR, "cannot initialize pthreadAttributes, out of memory\n");
+        break;
+      default:
+        systemLog->sysLog(LOG_ERR, "the error code is unknown\n");
+        break;
+    }
+    return;
+	}
+	returnCode = pthread_attr_setdetachstate(&pthreadAttributes, PTHREAD_CREATE_DETACHED);
+  if (returnCode == EINVAL) {
+    systemLog->sysLog(LOG_ERR, "the detached state type is invalid\n");
+    return;
+  }
+  threadSemaphore = new Semaphore();
+  if (! threadSemaphore) {
+    systemLog->sysLog(LOG_ERR, "threadSemaphore is NULL, cannot initialize thread\n");
+    return;
+  }
+  pthreadInitialized = true;
+
+  return;
+}
+
+Thread::~Thread(void) {
+  if (pthreadInitialized)
+    pthread_attr_destroy(&pthreadAttributes);
+
+  if (threadSemaphore) {
+    delete threadSemaphore;
+  }
+  pthreadInitialized = false;
+  objectAction = NULL;
+
+  return;
+}
+
+// Wrapping function for calling pthread_create()
+static void *threadFunction(void *threadArguments) {
+  ObjectAction *objectActionThread = (ObjectAction *)((int *)threadArguments)[0];
+  Semaphore *threadSemaphore = (Semaphore *)((int *)threadArguments)[1];
+
+  threadSemaphore->semaphorePost();
+
+  objectActionThread->start((void *)((int *)threadArguments)[2]);
+
+  return NULL;
+}
+
+int Thread::createThread(void *arguments) {
+  int returnCode;
+  int *threadArguments[3];
+
+  
+  if (! pthreadInitialized) {
+    systemLog->sysLog(LOG_ERR, "the posix thread is not initialized correctly, cannot use it\n");
+    return EINVAL;
+  }
+  //printf("objectAction = %X\n", (int)objectAction);
+  threadArguments[0] = (int *)objectAction;
+  threadArguments[1] = (int *)threadSemaphore;
+  threadArguments[2] = (int *)arguments;
+
+  returnCode = pthread_create(&pthreadId, &pthreadAttributes, threadFunction, threadArguments);
+  threadSemaphore->semaphoreWait();
+  if (returnCode) {
+    switch (returnCode) {
+      case EAGAIN:
+        systemLog->sysLog(LOG_ERR, "the system lacked the necessary resources to create another thread, limit exceeded ?\n");
+        break;
+      case EINVAL:
+        systemLog->sysLog(LOG_ERR, "the pthreadAttributes argument is invalid\n");
+        break;
+      default:
+        systemLog->sysLog(LOG_ERR, "the error code is unknown\n");
+        break;
+    }
+  }
+
+  return returnCode;
+}
+

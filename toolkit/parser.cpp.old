@@ -1,0 +1,138 @@
+#include "parser.h"
+
+Parser::Parser(char *_delimiter) {
+  if(_delimiter) {
+    delimiter = _delimiter;
+    delimiterLenght = strlen(delimiter);
+    parserInitialized = 1;
+  }
+  else {
+    delimiter = '\0';
+    delimiterLenght = 1;
+    parserInitialized = 0;
+  }
+
+  return;
+}
+
+Parser::Parser(int _minAsciiDelimiter, int _maxAsciiDelimiter) {
+  if (_minAsciiDelimiter && _maxAsciiDelimiter) {
+    minAsciiDelimiter = _minAsciiDelimiter;
+    maxAsciiDelimiter = _maxAsciiDelimiter;
+    parserInitialized = 2;
+    delimiterLenght = 1;
+  }
+  else
+    parserInitialized = 0;
+
+  return;
+}
+
+
+Parser::~Parser() {
+  delimiter = 0;
+  delimiterLenght = 0;
+  
+  return;
+}
+
+void Parser::upperCase(char *chaine) {
+	int cpt = 0;
+
+	if (! chaine)
+		return;
+	while (chaine[cpt])
+	{
+		chaine[cpt] = toupper(chaine[cpt]);
+		cpt++;
+	}
+
+	return;
+}
+
+void Parser::deleteWhiteSpaces(String *memoryString) {
+  int counter = 0;  
+  int rotateCounter;
+  int blocLenght = memoryString->getBlocSize();
+  char *string = memoryString->getBloc();
+
+  if (! memoryString) {
+    systemLog->sysLog(LOG_ERR, "memoryString is NULL. cannot delete white spaces in this string\n");
+    return;
+  }
+  while (string[counter] && (counter < blocLenght)) {
+    if ((string[counter] == ' ') || (string[counter] == '\t')) {
+      rotateCounter = counter;
+      while ((rotateCounter+1 < blocLenght) && (string[rotateCounter+1])) {
+        string[rotateCounter] = string[rotateCounter+1];
+        rotateCounter++;
+      }
+      string[rotateCounter] = 0;
+    }
+    counter++;
+  }
+    
+  return;
+}
+
+List<String *> *Parser::tokenizeString(char *chaine, int tokenizeLimit) {
+	int cpt = 0;
+	int cpt2;
+	char *ptrdeb;
+	String *argelt;
+  List<String *> *tokenList;
+  int len;
+
+  if (! parserInitialized) {
+    systemLog->sysLog(LOG_ERR, "parser parameters are not initialized correctly. cannot tokenize string\n");
+    return NULL;
+  }
+  tokenList = new List<String *>();
+	if (! chaine)
+		return NULL;
+  ptrdeb = chaine;
+  while (chaine[cpt]) {
+    if ((chaine[cpt] == '\r') || (chaine[cpt] == '\n'))
+      chaine[cpt] = 0;
+    cpt++;
+  }
+  len = cpt;
+  cpt = 0;
+	while (cpt < len) {
+		cpt2 = 0;
+    if (parserInitialized == 1) {
+		  while ((cpt < len ) && strncmp(&chaine[cpt], delimiter, delimiterLenght)) {
+			  cpt++;
+			  cpt2++;
+		  }
+    }
+    else {
+      while ((cpt < len ) && ! ((chaine[cpt] >= minAsciiDelimiter) && (chaine[cpt] <= maxAsciiDelimiter))) {
+        cpt++;
+        cpt2++;
+      }
+    }
+		if (! cpt2)
+      argelt = new String(1);
+    else {
+		  argelt = new String(cpt2+1);
+		  strncpy(argelt->getBloc(), ptrdeb, argelt->getBlocSize());
+		  argelt->getBloc()[cpt2] = 0;
+      tokenizeLimit--;
+    }
+		tokenList->addElement(argelt);
+    cpt += delimiterLenght;
+    if (parserInitialized == 2)
+      ptrdeb = &chaine[cpt-delimiterLenght];
+    else
+      ptrdeb = &chaine[cpt];
+    if (! tokenizeLimit) {
+      argelt = new String(strlen(ptrdeb)+1);
+      strncpy(argelt->getBloc(), ptrdeb, argelt->getBlocSize());
+      tokenList->addElement(argelt);
+      return tokenList;
+    }
+	}
+
+  return tokenList;
+}

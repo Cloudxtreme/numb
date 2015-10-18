@@ -1,0 +1,94 @@
+/***************************************************************************
+                          hashtable.cpp  -  description
+                             -------------------
+    begin                : Mer mar 5 2003
+    copyright            : (C) 2003 by spe
+    email                : spe@artik.intra.selectbourse.net
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#include "hashtable.h"
+
+HashTable::HashTable() {
+  hashTableInitialized = false;
+  hashTable = g_hash_table_new(g_str_hash, g_str_equal);
+  if (! hashTable) {
+    systemLog->sysLog(LOG_ERR, "hashTable is NULL. So g_hash_table_new returned an error while trying to create this object\n");
+    return;
+  }
+  dataList = new List<String *>();
+  if (! dataList) {
+    systemLog->sysLog(LOG_ERR, "dataList is NULL. Cannot initialize List<Memory *>\n");
+    g_hash_table_destroy(hashTable);
+    return;
+  }
+  dataList->setDestroyData(2);
+  hashTableInitialized = true;
+
+  return;
+}
+
+HashTable::~HashTable() {
+  if (hashTableInitialized) {
+    g_hash_table_destroy(hashTable);
+    delete dataList;
+  }
+  dataList = NULL;
+  hashTable = NULL;
+  hashTableInitialized = false;
+
+  return;
+}
+
+void *HashTable::searchKey(void *key) {
+  void *result;
+  
+  if (! key) {
+    systemLog->sysLog(LOG_ERR, "in HashTable::searchKey() key argument is NULL, cannot search in hashtable\n");
+    return NULL;
+  }
+  result = g_hash_table_lookup(hashTable, key);
+
+  return result;
+}
+
+int HashTable::insertKey(void *key, void *value) {
+  if (! key || ! value) {
+    systemLog->sysLog(LOG_ERR, "in HashTable::insertKey() key or value argument is NULL, cannot insert key/value pair\n");
+    return -1;
+  }
+  g_hash_table_insert(hashTable, key, value);
+
+  return 0;
+}
+
+void HashTable::deleteKey(void *key) {
+  if (! key) {
+    systemLog->sysLog(LOG_ERR, "in HashTable::deleteKey : key is NULL, cannot removing key from hashtable\n");
+    return;
+  }
+  g_hash_table_remove(hashTable, key);
+
+  return;
+}
+
+static gboolean purgeFunc(void *key, void *value, void *userData) {
+  int *ptr = (int *)key;
+  free(ptr);
+  return true;
+}
+
+void HashTable::purgeAllKeys(void) {
+  g_hash_table_foreach_remove(hashTable, purgeFunc, NULL);
+
+  return;
+}
+

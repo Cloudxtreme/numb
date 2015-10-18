@@ -1,0 +1,6 @@
+#ifndef MOOV_H
+#define MOOV_H
+
+unsigned int moov_seek(unsigned char *, unsigned int, float, unsigned int *, unsigned int *, unsigned int);
+
+#endif

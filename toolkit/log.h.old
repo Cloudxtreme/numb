@@ -1,0 +1,79 @@
+/***************************************************************************
+                            log.h  -  description
+                             -------------------
+    begin                : Jeu nov 7 2002
+    copyright            : (C) 2002 by Sebastien Petit
+    email                : spe@selectbourse.net
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+/*
+ * Includes C
+ */
+#ifndef LOG_H
+#define LOG_H
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <syslog.h>
+#include <stdarg.h>
+#include <pthread.h>
+#include "debug.h"
+
+#define LOG_FILE  -1
+
+#define SYSLOG    1
+#define LOCALFILE 2
+
+class LogError {
+private:
+  FILE *localFile;
+  char mode;
+  int logOpt;
+  char ident[64];
+  char buf[255];
+  char buf2[255];
+  pthread_rwlock_t locksyslog;
+  pthread_rwlock_t lockmode;
+  pthread_rwlock_t lockidentity;
+  pthread_rwlock_t lockfacility;
+  pthread_rwlock_t lockopen;
+  pthread_rwlock_t lockclose;
+public:
+  LogError();
+  LogError(char *);
+  ~LogError();
+  void setOutput(char);
+  char getOutput(void);
+  void setIdentity(char *);
+  void setLocalFile(FILE *_localFile) { localFile = _localFile; };
+  FILE *getLocalFile(void) { return localFile; };
+  void setMode(char _mode) { mode = _mode; };
+  char getMode(void) { return mode; };
+  void setLogOpt(int _logOpt) { logOpt = _logOpt; };
+  int  getLogOpt(void) { return logOpt; };
+  void setIdent(char *_ident) { bzero(ident, sizeof(ident)); strncpy(ident, _ident, sizeof(ident)); };
+  char *getIdent(void) { return ident; };
+  void initMutexes(void);
+  void sysLog(int, char *, ...);
+  void sysLog(char *, const char *, unsigned int, int, char *, ...);
+  void openFile(char *);
+  void closeFile(void);
+};
+
+extern LogError *systemLog;
+
+#define ERROR __FILE__, __FUNCTION__, __LINE__, LOG_ERR
+#define CRITICAL __FILE__, __FUNCTION__, __LINE__, LOG_CRIT
+#define INFO __FILE__, __FUNCTION__, __LINE__, LOG_INFO
+
+#endif

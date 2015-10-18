@@ -1,0 +1,96 @@
+/***************************************************************************
+                          configuration.cpp  -  description
+                             -------------------
+    begin                : Dim nov 17 2002
+    copyright            : (C) 2002 by spe
+    email                : spe@artik.intra.selectbourse.net
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#include "configuration.h"
+#include "../toolkit/parser.h"
+
+Configuration::Configuration(String *configurationFileName) {
+  configurationInitialized = 0;
+  configurationFile = new File(configurationFileName, "r", 1);
+  if (! configurationFile->getStreamFileInitialized()) {
+    systemLog->sysLog(ERROR, "configuration file is not opened, cannot initialize Configuration Object correctly\n");
+    return;
+  }
+  configurationInitialized = 1;
+
+  return;
+}
+
+Configuration::~Configuration() {
+  if (configurationInitialized) {
+    if (configurationFile->closeStreamFile())
+      systemLog->sysLog(ERROR, "configuration file is not closed correctly, a file descriptor may be lose\n");
+  }
+  if (configurationFile)
+    delete configurationFile;
+  configurationFile = NULL;
+  configurationInitialized = 0;
+
+  return;
+}
+
+void Configuration::configurationLineError(String *configurationLine) {
+  systemLog->sysLog(ERROR, "syntax error in configuration line: %s\n", configurationLine->getBloc());
+  return;
+}
+
+int Configuration::parseConfigurationFile(void) {
+  Parser parseCommands("=");
+  List<String *> *tokenCommand = NULL;
+  String *configurationLine;
+
+	if (! configurationInitialized) {
+		systemLog->sysLog(ERROR, "configuration file is not initialized. cannot load values\n");
+		return EINVAL;
+	}
+  
+	while (! configurationFile->feofStreamFile()) {
+		configurationLine = configurationFile->getStringStreamFile();
+		tokenCommand = parseCommands.tokenizeString(configurationLine->getBloc(), 255);
+
+		if (tokenCommand->getListSize() < 2) {
+			systemLog->sysLog(ERROR, "error in configuration file (skipping): %s\n", configurationLine->getBloc());
+			delete tokenCommand;
+			delete configurationLine;
+			continue;
+		}
+		// We must destroy char * pointer with a free call
+		tokenCommand->setDestroyData(2);
+
+		// Deleting Spaces and Tabulations from tokenCommand
+		tokenCommand->getFirstElement()->deleteWhiteSpaces();
+		tokenCommand->getElement(2)->deleteWhiteSpaces();
+
+		// Comparing legal commands to the command parsed    
+		if (! strcmp(tokenCommand->getFirstElement()->getBloc(), "proxy")) {
+			tokenCommand->removeFirst();
+			strncpy(proxyAddress, tokenCommand->getFirstElement()->bloc, sizeof(proxyAddress));
+		}	
+		// Comparing legal commands to the command parsed    
+		if (! strcmp(tokenCommand->getFirstElement()->getBloc(), "proxyuserpwd")) {
+			tokenCommand->removeFirst();
+			strncpy(proxyUserPassword, tokenCommand->getFirstElement()->bloc, sizeof(proxyUserPassword));
+		}
+
+		if (tokenCommand)
+			delete tokenCommand;
+
+		delete configurationLine;
+  	}
+
+	return 0;
+}

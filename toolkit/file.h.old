@@ -1,0 +1,63 @@
+/***************************************************************************
+                          file.h  -  description
+                             -------------------
+    begin                : Dim nov 17 2002
+    copyright            : (C) 2002 by spe
+    email                : spe@artik.intra.selectbourse.net
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#ifndef FILE_H
+#define FILE_H
+
+#include "log.h"
+#include "mystring.h"
+#include "debug.h"
+
+extern LogError *systemLog;
+
+/**
+  *@author spe
+  */
+
+class File {
+private:
+  String *fileName;
+  char buffer[32768];
+  int fileDescriptor;
+  FILE *streamDescriptor;
+  int maxReadBuffer;
+  int fileInitialized;
+  int streamFileInitialized;
+public:
+  File();
+  File(String *, int, int);
+  File(String *, const char *, int);
+  ~File();
+  void File::setMaxReadBuffer(size_t _maxReadBuffer) { maxReadBuffer = _maxReadBuffer; };
+  int File::getMaxReadBuffer(void) { return maxReadBuffer; };
+  int File::getFileInitialized(void) { return fileInitialized; };
+  int File::getStreamFileInitialized(void) { return streamFileInitialized; };
+  int File::openFile(String *, int, int);
+  int File::openStreamFile(const char *, int);
+  int File::closeFile(void);
+  int File::closeStreamFile(void);
+  int File::checkRegularFile(void);
+  String *File::readStreamFile(size_t *);
+  String *File::readStreamFile(size_t *, int);
+  String *File::getStringStreamFile(void);
+  int File::writeStreamFile(String *);
+  int File::writeStreamFile(char *, size_t);
+  int File::feofStreamFile(void);
+  int File::checkRegularFile(int);
+};
+
+#endif
